@@ -2,11 +2,11 @@
 
 * Abdulrahman Al-Yazidi, aalyazidi1@csu.fullerton.edu
 * Christopher Ascencio, christopherascencio@csu.fullerton.edu
-* Lark  Inostroza, larkthelustrous@gmail.com
+* Lark Inostroza, larkthelustrous@gmail.com
 
 ## Language Used
 
-Java
+Javascript (Node.js runtime)
 
 ## Requirments
 
