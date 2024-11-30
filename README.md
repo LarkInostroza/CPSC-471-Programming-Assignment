@@ -37,3 +37,19 @@ put <file_name>
 ### the client will look at files on dir ./client-files
 
 ### the server will look at files on dir ./server-files
+
+### Notes
+The client performs a DNS lookup or directly connects to the provided server IP
+since the server runs on the local network. 
+the client can be run with the following example:
+```bash
+node ftp-client.mjs localhost 1025
+```
+or
+```bash
+node ftp-client.mjs 127.0.0.1 1025
+```
+Example server run:
+```bash
+node ftp-server.mjs 1025
+```
