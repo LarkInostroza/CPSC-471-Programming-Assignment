@@ -62,7 +62,6 @@ function handleLs(cmd, args) {
   });
   dataChannel.on("close", () => {
     console.log("ls data channel closed");
-    process.stdout.write("ftp> ");
   });
 
   // Listen to unassigned port and send info to the FTP server
@@ -106,7 +105,6 @@ function handlePut(cmd, args) {
     });
     dataChannel.on("close", () => {
       console.log(`${cmd}: data channel closed`);
-      process.stdout.write("ftp> ");
     });
 
     // Listen to unassigned port and send info to the FTP server
@@ -176,6 +174,7 @@ function handleGet(cmd, args) {
     dataChannel.on("close", () => {
       console.log(`${cmd}: data channel closed`);
       console.log(`${cmd}: bytes downloaded: ${bytesDownloaded}`);
+      process.stdout.write("ftp> ");
     });
 
     // handle err if server DC etc
@@ -207,6 +206,6 @@ client.on("close", () => {
 
 client.on("data", (data) => {
   // log server response on control socket
-  console.log(`Server Response: ${data}`);
+  console.warn(`Server status response: ${data}`);
   process.stdout.write("ftp> ");
 });

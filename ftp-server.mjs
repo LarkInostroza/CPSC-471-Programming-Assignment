@@ -15,7 +15,7 @@ const server = net.createServer((socket) => {
 
     // dataConnection port always last arg
     if (cmd == "ls") {
-      handleLs(socket.remoteAddress, args);
+      handleLs(cmd, socket.remoteAddress, args, socket);
     } else if (cmd == "put") {
       handlePut(cmd, socket.remoteAddress, args, socket);
     } else if (cmd == "get") {
@@ -27,7 +27,7 @@ const server = net.createServer((socket) => {
   });
 });
 
-function handleLs(remoteAddress, args) {
+function handleLs(cmd, remoteAddress, args, controlSocket) {
   const port = parseInt(args[args.length - 1]);
   console.log({ remoteAddress, port });
   const dataChannel = createConnection(port, remoteAddress, () => {
@@ -42,8 +42,15 @@ function handleLs(remoteAddress, args) {
         console.log("cmd:ls - FAILURE", error.message);
         dataChannel.destroy();
       } else {
-        console.log("cmd:ls - SUCCESS");
         dataChannel.end();
+      }
+    });
+
+    dataChannel.on("close", (err) => {
+      if (err) {
+        controlSocket.write(`${cmd}: FAIL`);
+      } else {
+        controlSocket.write(`${cmd}: SUCCESS`);
       }
     });
   });
@@ -70,12 +77,18 @@ function handlePut(cmd, remoteAddress, args, controlSocket) {
         });
       });
       dataChannel.on("end", () => {
-        console.log(`${cmd}: SUCCESS`);
-        controlSocket.write(`${cmd} SUCCESS`);
         //close streams
 
         writeStream.end();
         dataChannel.end();
+      });
+      dataChannel.on("close", (err) => {
+        if (err) {
+          controlSocket.write(`${cmd}: FAIL`);
+        } else {
+          console.log(`${cmd}: SUCCESS`);
+          controlSocket.write(`${cmd} SUCCESS`);
+        }
       });
     });
   } catch (error) {
@@ -101,7 +114,6 @@ function handleGet(cmd, remoteAddress, args, controlSocket) {
         dataChannel.end();
       });
       console.log(`${cmd}: FAIL: File doesn't exist`);
-      controlSocket.write(`${cmd} FAIL`);
 
       return;
     }
@@ -125,6 +137,7 @@ function handleGet(cmd, remoteAddress, args, controlSocket) {
     dataChannel.on("close", (err) => {
       if (err) {
         console.error(`${cmd}: FAIL`);
+        controlSocket.write(`${cmd} FAIL`);
       } else {
         //send success to client control socket
         controlSocket.write(`${cmd} SUCCESS`);
