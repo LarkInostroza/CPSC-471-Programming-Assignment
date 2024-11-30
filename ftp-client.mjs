@@ -17,7 +17,7 @@ const client = createConnection(port, serverName, () => {
   console.log("initial control socket port: ", client.address().port);
   console.log(`connection sucessfully established to ${serverName}:${port}`);
 
-  process.stdout.write("ftp>");
+  process.stdout.write("ftp> ");
 
   //receive cli input
   process.stdin.on("data", (data) => {
@@ -38,7 +38,7 @@ const client = createConnection(port, serverName, () => {
     } else {
       console.error(`${cmd} command doesn't exist: use (ls, get or put)`);
 
-      process.stdout.write("ftp>");
+      process.stdout.write("ftp> ");
     }
   });
 });
@@ -62,7 +62,7 @@ function handleLs(cmd, args) {
   });
   dataChannel.on("close", () => {
     console.log("ls data channel closed");
-    process.stdout.write("ftp>");
+    process.stdout.write("ftp> ");
   });
 
   // Listen to unassigned port and send info to the FTP server
@@ -87,11 +87,10 @@ function handlePut(cmd, args) {
       socket.write(fileBuffer, (err) => {
         if (err != undefined) {
           console.error(`${cmd} command error`, err.message);
-          socket.destroy();
+          socket.destroy(err);
           dataChannel.end();
-          throw err;
         } else {
-          console.log(`${cmd}: SUCCESS`);
+          // close sockets
           socket.end();
           dataChannel.close();
         }
@@ -103,12 +102,11 @@ function handlePut(cmd, args) {
       });
       socket.on("error", (err) => {
         console.error(`Error ${cmd} ls data channel:`, err.message);
-        throw err;
       });
     });
     dataChannel.on("close", () => {
       console.log(`${cmd}: data channel closed`);
-      process.stdout.write("ftp>");
+      process.stdout.write("ftp> ");
     });
 
     // Listen to unassigned port and send info to the FTP server
@@ -121,7 +119,7 @@ function handlePut(cmd, args) {
     });
   } catch (error) {
     console.error(`${cmd} Error: `, error.message);
-    process.stdout.write("ftp>");
+    process.stdout.write("ftp> ");
   }
 }
 
@@ -178,8 +176,6 @@ function handleGet(cmd, args) {
     dataChannel.on("close", () => {
       console.log(`${cmd}: data channel closed`);
       console.log(`${cmd}: bytes downloaded: ${bytesDownloaded}`);
-
-      process.stdout.write("ftp>");
     });
 
     // handle err if server DC etc
@@ -197,7 +193,7 @@ function handleGet(cmd, args) {
     });
   } catch (error) {
     console.error(`${cmd} Error: `, error.message);
-    process.stdout.write("ftp>");
+    process.stdout.write("ftp> ");
   }
 }
 
@@ -209,4 +205,8 @@ client.on("close", () => {
   console.error(`Can't reach server`);
 });
 
-client.on("data", (data) => {});
+client.on("data", (data) => {
+  // log server response on control socket
+  console.log(`Server Response: ${data}`);
+  process.stdout.write("ftp> ");
+});

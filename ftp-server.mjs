@@ -17,10 +17,10 @@ const server = net.createServer((socket) => {
     if (cmd == "ls") {
       handleLs(socket.remoteAddress, args);
     } else if (cmd == "put") {
-      handlePut(cmd, socket.remoteAddress, args);
+      handlePut(cmd, socket.remoteAddress, args, socket);
     } else if (cmd == "get") {
       fs.existsSync();
-      handleGet(cmd, socket.remoteAddress, args);
+      handleGet(cmd, socket.remoteAddress, args, socket);
     } else {
       console.error(`${cmd}: FAIL: ${cmd} doesn't exist`);
     }
@@ -49,7 +49,7 @@ function handleLs(remoteAddress, args) {
   });
 }
 
-function handlePut(cmd, remoteAddress, args) {
+function handlePut(cmd, remoteAddress, args, controlSocket) {
   const port = parseInt(args[args.length - 1]);
   const fileName = args[args.length - 2];
   const filePath = `./server-files/${fileName}`;
@@ -63,19 +63,23 @@ function handlePut(cmd, remoteAddress, args) {
         writeStream.write(chunck, (err) => {
           if (err != undefined) {
             console.error(`${cmd} error`, err.message);
+            controlSocket.write(`${cmd} FAIL`);
+
             dataChannel.destroy();
-            throw err;
           }
         });
       });
       dataChannel.on("end", () => {
         console.log(`${cmd}: SUCCESS`);
+        controlSocket.write(`${cmd} SUCCESS`);
         //close streams
+
         writeStream.end();
         dataChannel.end();
       });
     });
   } catch (error) {
+    controlSocket.write(`${cmd} FAIL`);
     console.error(`${cmd} ERROR: `, error.message);
     console.error(`${cmd} FAILURE: `);
   }
@@ -84,7 +88,7 @@ function handlePut(cmd, remoteAddress, args) {
   console.log({ remoteAddress, port });
 }
 
-function handleGet(cmd, remoteAddress, args) {
+function handleGet(cmd, remoteAddress, args, controlSocket) {
   const port = parseInt(args[args.length - 1]);
   const fileName = args[args.length - 2];
   const filePath = `./server-files/${fileName}`;
@@ -97,6 +101,7 @@ function handleGet(cmd, remoteAddress, args) {
         dataChannel.end();
       });
       console.log(`${cmd}: FAIL: File doesn't exist`);
+      controlSocket.write(`${cmd} FAIL`);
 
       return;
     }
@@ -121,6 +126,8 @@ function handleGet(cmd, remoteAddress, args) {
       if (err) {
         console.error(`${cmd}: FAIL`);
       } else {
+        //send success to client control socket
+        controlSocket.write(`${cmd} SUCCESS`);
         console.log(`${cmd}: SUCCESS`);
       }
     });
