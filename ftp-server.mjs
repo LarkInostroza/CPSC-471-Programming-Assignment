@@ -15,16 +15,19 @@ const server = net.createServer((socket) => {
 
     // dataConnection port always last arg
     if (cmd == "ls") {
-      handleLs(socket.remoteAddress, args);
+      handleLs(cmd, socket.remoteAddress, args, socket);
     } else if (cmd == "put") {
-      handlePut(cmd, socket.remoteAddress, args);
+      handlePut(cmd, socket.remoteAddress, args, socket);
     } else if (cmd == "get") {
-      handleGet(cmd, socket.remoteAddress, args);
+      fs.existsSync();
+      handleGet(cmd, socket.remoteAddress, args, socket);
+    } else {
+      console.error(`${cmd}: FAIL: ${cmd} doesn't exist`);
     }
   });
 });
 
-function handleLs(remoteAddress, args) {
+function handleLs(cmd, remoteAddress, args, controlSocket) {
   const port = parseInt(args[args.length - 1]);
   console.log({ remoteAddress, port });
   const dataChannel = createConnection(port, remoteAddress, () => {
@@ -39,14 +42,21 @@ function handleLs(remoteAddress, args) {
         console.log("cmd:ls - FAILURE", error.message);
         dataChannel.destroy();
       } else {
-        console.log("cmd:ls - SUCCESS");
         dataChannel.end();
+      }
+    });
+
+    dataChannel.on("close", (err) => {
+      if (err) {
+        controlSocket.write(`${cmd}: FAIL`);
+      } else {
+        controlSocket.write(`${cmd}: SUCCESS`);
       }
     });
   });
 }
 
-function handlePut(cmd, remoteAddress, args) {
+function handlePut(cmd, remoteAddress, args, controlSocket) {
   const port = parseInt(args[args.length - 1]);
   const fileName = args[args.length - 2];
   const filePath = `./server-files/${fileName}`;
@@ -60,19 +70,29 @@ function handlePut(cmd, remoteAddress, args) {
         writeStream.write(chunck, (err) => {
           if (err != undefined) {
             console.error(`${cmd} error`, err.message);
+            controlSocket.write(`${cmd} FAIL`);
+
             dataChannel.destroy();
-            throw err;
           }
         });
       });
       dataChannel.on("end", () => {
-        console.log(`${cmd}: SUCCESS`);
         //close streams
+
         writeStream.end();
         dataChannel.end();
       });
+      dataChannel.on("close", (err) => {
+        if (err) {
+          controlSocket.write(`${cmd}: FAIL`);
+        } else {
+          console.log(`${cmd}: SUCCESS`);
+          controlSocket.write(`${cmd} SUCCESS`);
+        }
+      });
     });
   } catch (error) {
+    controlSocket.write(`${cmd} FAIL`);
     console.error(`${cmd} ERROR: `, error.message);
     console.error(`${cmd} FAILURE: `);
   }
@@ -81,12 +101,23 @@ function handlePut(cmd, remoteAddress, args) {
   console.log({ remoteAddress, port });
 }
 
-function handleGet(cmd, remoteAddress, args) {
+function handleGet(cmd, remoteAddress, args, controlSocket) {
   const port = parseInt(args[args.length - 1]);
   const fileName = args[args.length - 2];
   const filePath = `./server-files/${fileName}`;
-  //TODO: Handle if file already exists
   try {
+    // check if file exists 1st
+    if (!fs.existsSync(filePath)) {
+      // send error to client if file doesn't exist
+      const dataChannel = createConnection(port, remoteAddress, () => {
+        dataChannel.write("@@FAIL: File doesn't exist");
+        dataChannel.end();
+      });
+      console.log(`${cmd}: FAIL: File doesn't exist`);
+
+      return;
+    }
+
     const fileBuffer = fs.readFileSync(filePath); // read file to buffer
     const dataChannel = createConnection(port, remoteAddress, () => {
       console.log(`${cmd} connection success: ${remoteAddress}:${port}`);
@@ -94,22 +125,28 @@ function handleGet(cmd, remoteAddress, args) {
         if (err != undefined) {
           dataChannel.destroy();
         } else {
-          console.log(`${cmd}: SUCCESS`);
           dataChannel.end();
         }
       });
     });
 
     dataChannel.on("error", (err) => {
-      dataChannel.destroy();
-      throw err;
+      console.error(`${cmd}: data channel error`, err.message);
+      dataChannel.destroy(err);
+    });
+    dataChannel.on("close", (err) => {
+      if (err) {
+        console.error(`${cmd}: FAIL`);
+        controlSocket.write(`${cmd} FAIL`);
+      } else {
+        //send success to client control socket
+        controlSocket.write(`${cmd} SUCCESS`);
+        console.log(`${cmd}: SUCCESS`);
+      }
     });
   } catch (err) {
     console.error(`${cmd} Error: ${err.message}`);
-    console.log(`${cmd}: FAILURE`);
-    const destroyDataChannel = createConnection(port, remoteAddress, () => {
-      destroyDataChannel.destroy();
-    });
+    console.log(`${cmd}: FAIL`);
   }
 }
 
