@@ -21,6 +21,8 @@ const server = net.createServer((socket) => {
     } else if (cmd == "get") {
       fs.existsSync();
       handleGet(cmd, socket.remoteAddress, args);
+    } else {
+      console.error(`${cmd}: FAIL: ${cmd} doesn't exist`);
     }
   });
 });

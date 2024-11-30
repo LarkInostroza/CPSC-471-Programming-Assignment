@@ -36,6 +36,8 @@ const client = createConnection(port, serverName, () => {
     } else if (cmd == "get") {
       handleGet(cmd, args);
     } else {
+      console.error(`${cmd} command doesn't exist: use (ls, get or put)`);
+
       process.stdout.write("ftp>");
     }
   });
@@ -126,6 +128,7 @@ function handlePut(cmd, args) {
 function handleGet(cmd, args) {
   const fileName = args[args.length - 1];
   const filePath = `./client-files/${fileName}`;
+  let bytesDownloaded = 0;
   let writeStream;
   try {
     const dataChannel = createServer((socket) => {
@@ -149,6 +152,7 @@ function handleGet(cmd, args) {
             console.error(`${cmd}: data channel chunck error ${err.meessage}`);
           }
         });
+        bytesDownloaded += chunck.length;
       });
 
       socket.on("end", () => {
@@ -173,6 +177,8 @@ function handleGet(cmd, args) {
 
     dataChannel.on("close", () => {
       console.log(`${cmd}: data channel closed`);
+      console.log(`${cmd}: bytes downloaded: ${bytesDownloaded}`);
+
       process.stdout.write("ftp>");
     });
 
