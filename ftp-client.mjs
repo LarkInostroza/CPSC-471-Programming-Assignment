@@ -126,35 +126,59 @@ function handlePut(cmd, args) {
 function handleGet(cmd, args) {
   const fileName = args[args.length - 1];
   const filePath = `./client-files/${fileName}`;
+  let writeStream;
   try {
-    const writeStream = fs.createWriteStream(filePath);
     const dataChannel = createServer((socket) => {
-      console.log(`${cmd}: data channel created`);
-
       socket.on("data", (chunck) => {
+        const header = chunck.slice(0, 7).toString(); // check if fail header was sent
+        // check if server sent an err msg
+        if (header.startsWith("@@FAIL:")) {
+          console.error(`${cmd}: server error: ${chunck}`);
+          dataChannel.close();
+          return;
+        }
         console.log(chunck);
+
+        // init writeStream once in case of multiple chuncks
+        if (!writeStream) {
+          writeStream = fs.createWriteStream(filePath);
+        }
+
         writeStream.write(chunck, (err) => {
-          if (err != undefined) {
-            dataChannel.destroy();
-            throw err;
+          if (err) {
+            console.error(`${cmd}: data channel chunck error ${err.meessage}`);
           }
         });
       });
+
       socket.on("end", () => {
         console.log(`${cmd}: data channel ended`);
+        if (writeStream) {
+          writeStream.end();
+        }
         dataChannel.close();
+      });
+      socket.on("close", (err) => {
+        if (err) {
+          console.error(`${cmd}: FAIL`);
+        }
+        if (writeStream) {
+          writeStream.end();
+        }
       });
       socket.on("error", (err) => {
         console.error(`Error ${cmd} get data channel:`, err.message);
-        throw err;
       });
     });
 
     dataChannel.on("close", () => {
       console.log(`${cmd}: data channel closed`);
-      writeStream.end();
-      console.log(`${cmd}: SUCCESS`);
       process.stdout.write("ftp>");
+    });
+
+    // handle err if server DC etc
+    dataChannel.on("error", (err) => {
+      console.error(`${cmd}: FAIL: ${err.message}`);
     });
 
     // Listen to unassigned port and send info to the FTP server
@@ -163,7 +187,7 @@ function handleGet(cmd, args) {
       const port = addr.port;
 
       client.write(`${cmd} ${fileName} ${port}`);
-      console.log(`${cmd}: data channel listening on port `, port);
+      console.log(`${cmd}: data channel created on port `, port);
     });
   } catch (error) {
     console.error(`${cmd} Error: `, error.message);
@@ -173,6 +197,10 @@ function handleGet(cmd, args) {
 
 client.on("error", (err) => {
   console.error(`Error: client socket error ${err.message}`);
+});
+
+client.on("close", () => {
+  console.error(`Can't reach server`);
 });
 
 client.on("data", (data) => {});

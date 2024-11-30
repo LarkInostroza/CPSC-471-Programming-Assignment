@@ -19,6 +19,7 @@ const server = net.createServer((socket) => {
     } else if (cmd == "put") {
       handlePut(cmd, socket.remoteAddress, args);
     } else if (cmd == "get") {
+      fs.existsSync();
       handleGet(cmd, socket.remoteAddress, args);
     }
   });
@@ -85,8 +86,19 @@ function handleGet(cmd, remoteAddress, args) {
   const port = parseInt(args[args.length - 1]);
   const fileName = args[args.length - 2];
   const filePath = `./server-files/${fileName}`;
-  //TODO: Handle if file already exists
   try {
+    // check if file exists 1st
+    if (!fs.existsSync(filePath)) {
+      // send error to client if file doesn't exist
+      const dataChannel = createConnection(port, remoteAddress, () => {
+        dataChannel.write("@@FAIL: File doesn't exist");
+        dataChannel.end();
+      });
+      console.log(`${cmd}: FAIL: File doesn't exist`);
+
+      return;
+    }
+
     const fileBuffer = fs.readFileSync(filePath); // read file to buffer
     const dataChannel = createConnection(port, remoteAddress, () => {
       console.log(`${cmd} connection success: ${remoteAddress}:${port}`);
@@ -94,22 +106,25 @@ function handleGet(cmd, remoteAddress, args) {
         if (err != undefined) {
           dataChannel.destroy();
         } else {
-          console.log(`${cmd}: SUCCESS`);
           dataChannel.end();
         }
       });
     });
 
     dataChannel.on("error", (err) => {
-      dataChannel.destroy();
-      throw err;
+      console.error(`${cmd}: data channel error`, err.message);
+      dataChannel.destroy(err);
+    });
+    dataChannel.on("close", (err) => {
+      if (err) {
+        console.error(`${cmd}: FAIL`);
+      } else {
+        console.log(`${cmd}: SUCCESS`);
+      }
     });
   } catch (err) {
     console.error(`${cmd} Error: ${err.message}`);
-    console.log(`${cmd}: FAILURE`);
-    const destroyDataChannel = createConnection(port, remoteAddress, () => {
-      destroyDataChannel.destroy();
-    });
+    console.log(`${cmd}: FAIL`);
   }
 }
 
