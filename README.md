@@ -2,7 +2,7 @@
 
 * Abdulrahman Al-Yazidi, aalyazidi1@csu.fullerton.edu
 * Christopher Ascencio, christopherascencio@csu.fullerton.edu
-* Larkl Nostroza, 
+* Lark  Inostroza, larkthelustrous@gmail.com
 
 ## Language Used
 
