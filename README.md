@@ -6,7 +6,7 @@
 
 ## Language Used
 
-Java
+Javascript (Node.js runtime)
 
 ## Requirments
 
