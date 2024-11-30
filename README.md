@@ -1,3 +1,13 @@
+## Names and Emails
+
+* Abdulrahman Al-Yazidi, aalyazidi1@csu.fullerton.edu
+* Christopher Ascencio, christopherascencio@csu.fullerton.edu
+* Larkl Nostroza, 
+
+## Language Used
+
+Java
+
 ## Requirments
 
 Node.js 22.8.0+
